@@ -9,7 +9,7 @@ from rest_framework.permissions import (
     IsAuthenticatedOrReadOnly,
 )
 
-from posts.models import Comment, Follow, Group, Post
+from posts.models import Group, Post
 
 from .permissions import IsAuthorOrReadOnly
 from .serializers import (
@@ -37,12 +37,19 @@ class CommentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
     pagination_class = None
 
-    def get_queryset(self):
+    def _get_post(self):
+        """Вспомогательный метод для получения поста."""
         post_id = self.kwargs.get('post_id')
-        return Comment.objects.filter(post_id=post_id)
+        return get_object_or_404(Post, id=post_id)
+
+    def get_queryset(self):
+        """Получение queryset комментариев с использованием related_name."""
+        post = self._get_post()
+        return post.comments.all()
 
     def perform_create(self, serializer):
-        post = get_object_or_404(Post, id=self.kwargs.get('post_id'))
+        """Создание комментария с привязкой к посту и автору."""
+        post = self._get_post()
         serializer.save(author=self.request.user, post=post)
 
 
@@ -58,9 +65,11 @@ class FollowViewSet(
     pagination_class = None
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        """Получение queryset подписок с использованием related_name."""
+        return self.request.user.follows.all()
 
     def perform_create(self, serializer):
+        """Создание подписки с привязкой к пользователю."""
         serializer.save(user=self.request.user)
 
 
